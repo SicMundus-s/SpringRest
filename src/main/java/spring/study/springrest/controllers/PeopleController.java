@@ -3,11 +3,16 @@ package spring.study.springrest.controllers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 import spring.study.springrest.models.Person;
 import spring.study.springrest.service.PeopleService;
 import spring.study.springrest.util.PersonErrorResponse;
+import spring.study.springrest.util.PersonNotCreatedException;
+import spring.study.springrest.util.PersonNotFoundException;
 
+import javax.validation.Valid;
 import java.util.List;
 
 /**
@@ -33,11 +38,46 @@ public class PeopleController {
     public Person getPerson(@PathVariable("id") int id) {
         return peopleService.findOne(id); // Jackson конвертирует в JSON
     }
+
+    /**
+     * Этот метод возвращает тело JSON с ошибкой если человек не найден по id.
+     * Параметр принимает исключение необходимого типа.
+     */
     @ExceptionHandler
-    private ResponseEntity<PersonErrorResponse> handleException() {
+    private ResponseEntity<PersonErrorResponse> handleException(PersonNotFoundException e) {
         PersonErrorResponse response = new PersonErrorResponse(
                 "Person with this id wasn't found",
                 System.currentTimeMillis());
-        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND); // 404 
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND); // 404
+    }
+
+    /**
+     * RequestBody - автоматически конвертирует json объект в объект класса person
+     */
+    @PostMapping()
+    public ResponseEntity<HttpStatus> create(@RequestBody @Valid Person person, BindingResult bindingResult) {
+        if(bindingResult.hasErrors()) {
+            StringBuilder errorMsg = new StringBuilder();
+
+            List<FieldError> errors = bindingResult.getFieldErrors();
+
+            for(FieldError error : errors) { // Конкатенируем сообщение об ошибках в полях
+                errorMsg.append((error.getField()))
+                        .append(" - ").append(error.getDefaultMessage())
+                        .append(";");
+            }
+            throw new PersonNotCreatedException(errorMsg.toString());
+        }
+
+        peopleService.save(person);
+        return ResponseEntity.ok(HttpStatus.OK); // Отправляем HTTP ответ с пустым телом и со статусом 200
+    }
+
+    @ExceptionHandler
+    private ResponseEntity<PersonErrorResponse> handleException(PersonNotCreatedException e) {
+        PersonErrorResponse response = new PersonErrorResponse(
+                e.getMessage(), // Сообщение которые мы положили в конструкторе полученное из конкатенации сообщение ошибок на полях(метод выше)
+                System.currentTimeMillis());
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST); // 404
     }
 }

@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import spring.study.springrest.models.Person;
 import spring.study.springrest.repositories.PeopleRepository;
+import spring.study.springrest.util.PersonNotFoundException;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,6 @@ public class PeopleService {
 
     public Person findOne(int id) {
         Optional<Person> foundPerson = peopleRepository.findById(id);
-        return foundPerson.orElse(null);
+        return foundPerson.orElseThrow(PersonNotFoundException::new);
     }
 }
